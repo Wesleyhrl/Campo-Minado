@@ -3,16 +3,17 @@ package campo_minado.modelo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.function.Consumer;
 
-import campo_minado.excecao.ExplosaoException;
-import campo_minado.excecao.ValorIncorreto;
 
-public class Tabuleiro {
 
-    private int linhas;
-    private int colunas;
-    private int minas;
+public class Tabuleiro implements CampoObservador {
+
+    private final int linhas;
+    private final int colunas;
+    private final int minas;
     private final List<Campo> campos = new ArrayList<>();
+    private final List<Consumer<ResultadoEvento>> observadores = new ArrayList<>();
 
     public Tabuleiro(int linhas, int colunas, int minas) {
 
@@ -25,9 +26,40 @@ public class Tabuleiro {
         sortearMinas();
 
     }
+    // Get and Set
+    public void paraCadaCampo(Consumer<Campo> funcao){
+        campos.forEach(funcao);
+    }
+    public int getLinhas(){
+        return this.linhas;
+    }
+    public int getColunas(){
+        return this.colunas;
+    }
+
     public List<Campo> getCampos() {
         return campos;
     }
+    //Observador
+    public void registrarObservador(Consumer<ResultadoEvento> obsevador){
+        observadores.add(obsevador);
+    }
+    private void notificarObservadores(Boolean resultado){
+        observadores.stream().forEach(o -> o.accept(new ResultadoEvento(resultado)));
+    }
+
+    //Evento
+    public void eventoOcorreu(Campo campo,CampoEvento evento){
+        if(evento == CampoEvento.EXPLODIR){
+            mostrarMinas();
+            notificarObservadores(false);
+        }else if(objetivoAlcancado()){
+            notificarObservadores(true);
+        }
+    }
+
+
+
     /**
      * Metodo para criação de campo de acordo com quantidade
      * dos atributos linhas e colunas
@@ -35,7 +67,9 @@ public class Tabuleiro {
     private void gerarCampos() {
         for (int l = 0; l < this.linhas; l++) {
             for (int c = 0; c < this.colunas; c++) {
-                campos.add(new Campo(l, c));
+                Campo campo = new Campo(l, c);
+                campo.registrarObservadores(this);
+                campos.add(campo);
             }
         }
 
@@ -89,25 +123,22 @@ public class Tabuleiro {
      * @param coluna
      */
     public void abrir(int linha ,int coluna){
-        try {
-            boolean verificador = false;
+        
             int cont = 0;
         for (int l = 0; l < this.linhas; l++) {
             for (int c = 0; c < this.colunas; c++) {
                 if(campos.get(cont).getLinha() == linha && campos.get(cont).getColuna() == coluna){
-                    verificador = campos.get(cont).abrir();
+                    campos.get(cont).abrir();
                 }
                 cont++;
             }
         }
-        if(verificador == false){
-            throw new ValorIncorreto();
-        }
-        } catch (ExplosaoException e) {
-            campos.forEach(c -> c.setAberto(true)); // abrir todos campos
-            throw e;
-        }
         
+        
+        
+    }
+    private void mostrarMinas(){
+        campos.stream().filter(c -> c.isMinado()).filter(c -> !c.isMarcado()).forEach(c -> c.setAberto(true));
     }
     /**
      * Metodo que percorrer lista de campos verificando se parametros recebidos batem com valor 
@@ -117,46 +148,19 @@ public class Tabuleiro {
      * @param coluna
      */
     public void marcar(int linha ,int coluna){
-        boolean verificador = false;
         int cont = 0;
         for (int l = 0; l < this.linhas; l++) {
             for (int c = 0; c < this.colunas; c++) {
                 if(campos.get(cont).getLinha() == linha && campos.get(cont).getColuna() == coluna){
                     campos.get(cont).alterarMarcacao();
-                    verificador = true;
                 }
                 cont++;
             }
         }
-        if(verificador == false){
-            throw new ValorIncorreto();
-        }
+        
     }
 
-    public String toString() {
-        StringBuilder sb= new StringBuilder();
-        sb.append("  ");
-        for (int c = 0; c < this.colunas; c++) {
-            sb.append(" ");
-            sb.append(c);
-            sb.append(" ");
-        }
-        sb.append("\n");
-        int cont = 0;
-        for (int l = 0; l < this.linhas; l++) {
-            sb.append(l);
-            sb.append(" ");
-            for (int c = 0; c < this.colunas; c++){
-                sb.append(" ");
-                sb.append(campos.get(cont));
-                cont++;
-                sb.append(" ");
-            }
-            sb.append("\n");
-        }
-
-        return sb.toString();
-    }
+    
 
 
 }

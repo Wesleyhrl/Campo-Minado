@@ -3,7 +3,7 @@ package campo_minado.modelo;
 import java.util.ArrayList;
 import java.util.List;
 
-import campo_minado.excecao.ExplosaoException;
+
 
 public class Campo {
     private int linha;
@@ -13,6 +13,8 @@ public class Campo {
     private boolean marcado;
 
     private List<Campo> vizinho = new ArrayList<>();
+    private List<CampoObservador> observadores = new ArrayList<>();
+
 
     
 
@@ -25,6 +27,9 @@ public class Campo {
 
     void setAberto(boolean aberto){
         this.aberto = aberto;
+        if(aberto){
+            notificarObservadores(CampoEvento.ABRIR);
+        }
     }
     public boolean isMarcado(){
         return this.marcado;
@@ -55,7 +60,15 @@ public class Campo {
         this.coluna = coluna;
     }
 
-
+    //Observadores
+    public void registrarObservadores(CampoObservador observador){
+        observadores.add(observador);
+    }
+    private void notificarObservadores(CampoEvento evento){
+        for (CampoObservador o : observadores) {
+            o.eventoOcorreu(this, evento);
+        }
+    }
     
 
     /**
@@ -96,9 +109,14 @@ public class Campo {
      * Método que verifica se campo esta fechado para mudar status do campo para
      * marcado
      */
-    void alterarMarcacao() {
+    public void alterarMarcacao() {
         if (!aberto) {
             marcado = !marcado;
+        }
+        if(marcado){
+            notificarObservadores(CampoEvento.MARCAR);
+        }else{
+            notificarObservadores(CampoEvento.DESMARCAR);
         }
     }
 
@@ -112,7 +130,7 @@ public class Campo {
      *         <p>
      *         "false" exite vizinho com mina
      */
-    boolean vizinhacaSegura() {
+    public boolean vizinhacaSegura() {
         for (Campo v : vizinho) {
             if (v.minado == true) {
                 return false;
@@ -132,12 +150,15 @@ public class Campo {
      * @return "true" para caso afirmativo de abertura
      * <p> "false" para caso negativo de abertura
      */
-    boolean abrir() {
+    public boolean abrir() {
         if (!aberto && !marcado) {
             aberto = true;
             if (minado) {
-                throw new ExplosaoException();
+                notificarObservadores(CampoEvento.EXPLODIR);
+                return true;
             }
+            setAberto(true);
+
             if (vizinhacaSegura()) {
                 vizinho.stream().forEach(v -> v.abrir());
             }
@@ -169,7 +190,7 @@ public class Campo {
      * <p> Utiliza StremAPI para percorrer lista de vizinhos e verificar filtrando pela quantidade de minas.
      * @return quantidade de minas na vizinhança.
      */
-    long minasNaVizinhanca(){
+    public long minasNaVizinhanca(){
         return vizinho.stream().filter(v -> v.minado).count();
     }
     /**
@@ -180,21 +201,9 @@ public class Campo {
         aberto = false;
         minado = false;
         marcado = false;
+        notificarObservadores(CampoEvento.REINICIAR);
     }
-    public String toString(){
-        if(marcado){ //campo marcado
-            return "x";
-        }else if (aberto && minado) { //perdeu o jogo
-            return "*";
-        } else if(aberto && minasNaVizinhanca() > 0){ //campo com quantidade de bombas proximas
-            return Long.toString(minasNaVizinhanca());
-        }
-        else if(aberto){ //campo aberto sem nenhuma bomba perto
-            return " ";
-        }else { //campo ainda não mechido
-            return "?";
-        }
-    }
+    
 
 
 
